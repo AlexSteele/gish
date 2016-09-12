@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 )
 
 type Cmd struct {
@@ -42,7 +43,7 @@ func ls(ctxt *gish, args ...string) {
 		dir = ctxt.fs
 	} else {
 		var err error
-		dir, err = ctxt.fs.get(args[0])
+		dir, err = ctxt.fs.get(ctxt, args[0])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, err.Error())
 			return
@@ -53,9 +54,8 @@ func ls(ctxt *gish, args ...string) {
 		return
 	}
 	if !dir.populated {
-		populate(dir, ctxt)
+		populate(ctxt, dir)
 	}
-
 	for _, f := range dir.below {
 		fmt.Println(f.name)
 	}
@@ -64,7 +64,7 @@ func cd(ctxt *gish, args ...string) {
 	if len(args) == 0 {
 		return
 	}
-	dir, err := ctxt.fs.get(args[0])
+	dir, err := ctxt.fs.get(ctxt, args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		return
@@ -76,7 +76,7 @@ func less(ctxt *gish, args ...string) {
 	if len(args) == 0 {
 		return
 	}
-	file, err := ctxt.fs.get(args[0])
+	file, err := ctxt.fs.get(ctxt, args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		return
@@ -102,8 +102,12 @@ func less(ctxt *gish, args ...string) {
 }
 
 func open(ctxt *gish, args ...string) {
-	// TODO: Impl
-	return
+	url := ctxt.fs.url()
+	cmd := exec.Command("open", url)
+	err := cmd.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, err.Error())
+	}
 }
 
 func help(cmdName string) {

@@ -18,12 +18,15 @@ type file struct {
 
 var ErrBadPath = errors.New("Bad path\n")
 
-func (f *file) get(path string) (*file, error) {
+func (f *file) get(ctxt *gish, path string) (*file, error) {
 	if len(path) == 0 || path == "." {
 		return f, nil
 	}
+	if strings.HasPrefix(path, "/") {
+		return f.root().get(ctxt, path[1:])
+	}
 	if strings.HasPrefix(path, "./") {
-		return f.get(path[1:])
+		return f.get(ctxt, path[1:])
 	}
 	if strings.HasPrefix(path, "..") {
 		if f.above == nil {
@@ -33,12 +36,12 @@ func (f *file) get(path string) (*file, error) {
 			return f.above, nil
 		}
 		if path[2] == '/' {
-			return f.above.get(path[2:])
+			return f.above.get(ctxt, path[2:])
 		}
 		return nil, ErrBadPath
 	}
-	if strings.HasPrefix(path, "/") && !f.isRoot() {
-		return f.root().get(path[1:])
+	if f.dir && !f.populated {
+		populate(ctxt, f)
 	}
 	for _, sub := range f.below {
 		if strings.HasPrefix(path, sub.name) {
@@ -46,9 +49,18 @@ func (f *file) get(path string) (*file, error) {
 				return &sub, nil
 			}
 			if path[len(sub.name)] == '/' {
-				return sub.get(path[len(sub.name):])
+				return sub.get(ctxt, path[len(sub.name)+1:])
 			}
 		}
+	}
+	if f.name == "users" {
+		user, _, err := ctxt.client.Users.Get(path)
+		if err != nil {
+			return nil, err
+		}
+		userFile := file{name: deref.String(user.Login), above: f}
+		f.below = append(f.below, userFile)
+		return &userFile, nil
 	}
 	return nil, ErrBadPath
 }
@@ -61,6 +73,19 @@ func (f *file) root() *file {
 	return curr
 }
 
+func (f *file) path() string {
+	var path string
+	for curr := f; curr.above != nil; curr = curr.above {
+		path = curr.name + "/" + path
+	}
+	path = "/" + path
+	return path
+}
+
+func (f *file) url() string {
+	return "https://www.github.com" + f.path()
+}
+
 func (f *file) isRoot() bool {
 	return f.above == nil
 }
@@ -69,7 +94,7 @@ func (f *file) isRepo() bool {
 	return !f.dir
 }
 
-func populate(f *file, ctxt *gish) error {
+func populate(ctxt *gish, f *file) error {
 	if f.populated {
 		return nil
 	}
@@ -100,11 +125,7 @@ func populate(f *file, ctxt *gish) error {
 			f.below = append(f.below, file{name: userStr})
 		}
 		// 		case "info":
-		// 			user, _, err := ctxt.client.Users.Get(pathItems[1])
-		// 			if err != nil {
-		// 				fmt.Fprintf(os.Stderr, err.Error())
-		// 			}
-		// 			fmt.Printf("%s - Followers: %d\n", deref.String(user.Login), deref.Int(user.Followers))
+		//
 	}
 	f.populated = true
 	return nil

@@ -84,10 +84,11 @@ func repl(ctxt *gish) {
 		}
 		name := args[0]
 		if name == "exit" {
+			fmt.Println("Goodbye!")
 			return
 		}
 		if name == "help" {
-			help(name)
+			help("")
 			continue
 		}
 		if cmd, ok := cmds[name]; ok {
