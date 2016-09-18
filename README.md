@@ -1,2 +1,3 @@
 # gish
-Browse GitHub like it's your filesystem
+Browse GitHub from the command line.
+
